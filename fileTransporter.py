@@ -163,7 +163,7 @@ class fileReceiver(object):
         # timer to 0-------------------------------
         self.timer = 0
         # RESET -----------------------------------
-        if(sequence == "RESET"):
+        if(sequence == "FINISH"):
             # print "RESET"
             try:
                 self.f.close()
@@ -196,6 +196,38 @@ class fileReceiver(object):
                     self.fileManager.checkDest(self.fileId, "ThisNode")
                 except:
                     raise
+            self.ended = True
+            self.acknowledge(
+                self.fileId, self.fileName, sequence, 'y', address)
+
+        elif(sequence == "STOP"):
+            # print "RESET"
+            try:
+                self.f.close()
+            except:
+                pass
+                # print "\n RESET FAILED \n"
+            if(self.ended is False):
+                # print self.ended
+                #self.fileManager.setSEQ(self.fileId, -1)
+                print "-----------------------------------------"
+                print "FINISHED DOWNLOADING PART: " + fileName
+                print "-----------------------------------------"
+                self.stopTS = time()
+                timeTaken = (self.lastRcvTimeStamp - self.startTimeStamp)
+                sizeRec = (self.LOF - self.firstSEQ) * LENGTH
+                if(timeTaken != 0):
+                    speed = (sizeRec / 1024) / timeTaken
+                else:
+                    speed = 0
+                print "Speed: " + str(speed) + " KBps"
+                print "Time taken: " + str(self.stopTS - self.startTS)
+                logList = [str(time()), "RECEIVED PART", str(fileName), str(
+                    self.fileSize / 1024), str(address), str(speed)]
+                # logTxt = "RECEIVED: " + str(fileName) + " " +
+                # str(self.fileSize / 1024) + " KB " + str(speed) + "KBps" + "
+                # from: " + str(address)
+                logger.log(str(logList))
             self.ended = True
             self.acknowledge(
                 self.fileId, self.fileName, sequence, 'y', address)

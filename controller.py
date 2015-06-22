@@ -123,7 +123,7 @@ class controller(object):
                     fileID = fileData[0]
                     fileName = fileData[1]
                     fileSeq = fileData[2]
-                    if((fileSeq == -1) and (fileID not in self.folderReceiver.activeFileId)):
+                    if(fileID not in self.folderReceiver.activeFileId):
                         fileSize = fileData[3]
                         filePriority = fileData[4]
                         timeStamp = fileData[5]

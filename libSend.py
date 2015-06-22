@@ -31,7 +31,7 @@ class ackTracker(object):
         self.fileName = None
 
     def handler(self, data):
-    	# print self.acks
+        # print self.acks
         Data = data
         fileName = Data[1]
         sequence = Data[2]
@@ -75,6 +75,11 @@ class fileSenderThread(object):
                  timeStamp, ttl, fileDest, fileDestStatus, communicator, SendId, onGoing):
         self.fileManager = fileManager
         self.fileID = fileID
+        self.fileStatus = self.fileManager.fileStatus(self.fileID)
+        if(self.fileStatus == -1):
+            self.fullFile = True
+        else:
+            self.fullFile = False
         self.filePath = filePath
         self.address = address
         self.fileSeq = fileSeq
@@ -105,7 +110,11 @@ class fileSenderThread(object):
     def sendReset(self, fileName, c, address):
         target = "folderReceiver"
         command = "receive"
-        data = [self.fileID, fileName, "RESET", "", 0, self.filePriority]
+        if(self.fullFile):
+            status = "FINISH"
+        else:
+            status = "STOP"
+        data = [self.fileID, fileName, status, "", 0, self.filePriority]
         message = [target, command, data]
         c.send(message, address)
         self.tracker.acceptRESET = True
@@ -195,7 +204,10 @@ class fileSenderThread(object):
         self.tracker.offset = sequence
         self.tracker.fileName = fileName
         self.tracker.sendReset = self.sendReset
-        status = "FINISHED SENDING"
+        if(self.fullFile):
+            status = "FINISHED SENDING"
+        else:
+            status = "FINISHED SENDING PART"
         while(self.tracker.stop is False):
             # print "resend:", self.fileID, self.resendCount
             if(self.delay > 1000):
