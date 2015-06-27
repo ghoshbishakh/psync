@@ -12,7 +12,7 @@ import logger
 
 # define packet length and address of socket and window size------------------
 LENGTH = 1000
-W = 5
+W = 32
 
 
 # HANDLING ACKs---------------------------------------------------------------
@@ -41,6 +41,12 @@ class ackTracker(object):
         status = Data[3]
 
         if((sequence == "RESET") and (self.acceptRESET is True)):
+            # print "DONE!! SENDING"
+            self.stop = True
+        if((sequence == "FINISH") and (self.acceptRESET is True)):
+            # print "DONE!! SENDING"
+            self.stop = True
+        if((sequence == "STOP") and (self.acceptRESET is True)):
             # print "DONE!! SENDING"
             self.stop = True
         elif(sequence in self.acks):

@@ -9,7 +9,7 @@ import logger
 
 
 LENGTH = 1000
-W = 5
+W = 32
 MAX_SEND_ONGOING = 4
 
 class fileTransporter(object):
