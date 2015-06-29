@@ -313,7 +313,7 @@ class fileReceiver(object):
         command = "acceptAck"
         ackData = [fileID, fileName, sequence, status]
         message = [target, command, ackData]
-        self.communicator.send(message, addr)
+        self.communicator.sendAck(message, addr)
         # print "ACK: " + str(sequence) + status
         if(status == 'y' or status == 'END'):
             self.LAS = sequence

@@ -25,6 +25,7 @@ class communicator(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(0.3)
         self.queue = []
+        self.ackQueue = []
         # bind to ADDR
         try:
             self.sock.bind((self.address, self.port))
@@ -42,7 +43,12 @@ class communicator(object):
             try:
                 data, address = self.sock.recvfrom(65507)
                 # print "thread receive: "+str(data) + "\n"
-                self.comHandler(data, address)
+                if("***" in data):
+                    data = data.split("***")
+                    self.comHandler(data[0], address)
+                    self.comHandler(data[1], address)
+                else:
+                    self.comHandler(data, address)
             except:
                 pass
 
@@ -71,18 +77,44 @@ class communicator(object):
         """
         dataJson = json.dumps(data)
         # print addr
-        frame = (dataJson, addr)
+        frame = [dataJson, addr]
         if(frame in self.queue):
             pass
         else:
             self.queue.append(frame)
 
+    def sendAck(self, data, addr):
+        dataJson = json.dumps(data)
+        frame = (dataJson, addr)
+        if(frame in self.ackQueue):
+            pass
+        else:
+            self.ackQueue.append(frame)
+
+    def piggyback(self):
+        for ack, addr in self.ackQueue:
+            piggybacked = False
+            for dataFrame in self.queue:
+                if((len(dataFrame) < 3) and (type(dataFrame) != tuple) and (dataFrame[1] == addr)):
+                    self.queue[self.queue.index(dataFrame)].insert(0, ack)
+                    self.ackQueue.remove((ack, addr))
+                    piggybacked = True
+                    break
+            if(not piggybacked):
+                self.queue.append((ack, addr))
+                self.ackQueue.remove((ack, addr))
+
     def frameSender(self):
         while 1:
+            self.piggyback()
             if(self.queue):
                 frame = self.queue[0]
-                dataJson = frame[0]
-                addr = frame[1]
+                if(len(frame) > 2):
+                    dataJson = frame[0] + "***" + frame[1]
+                    addr = frame[2]
+                else:
+                    dataJson = frame[0]
+                    addr = frame[1]
                 try:
                     self.sock.sendto(dataJson, addr)
                 except:
