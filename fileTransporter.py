@@ -155,7 +155,7 @@ class fileReceiver(object):
         self.fileId = data[0]
         fileName = data[1]
         chunkString = data[3]
-        chunkData = chunkString.decode('base64')
+        chunkData = chunkString
         fileSize = data[4]
         # print "seq:", sequence
         # print "lof", self.LOF
