@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 from threading import Thread
-import json
+import pickle
 import socket
 import time
 
@@ -46,7 +46,7 @@ class communicator(object):
             except:
                 pass
 
-    def comHandler(self, dataJson, address):
+    def comHandler(self, dataPickle, address):
         """parse data from json Message, and call handler with
         Arguments:
         jsonMessage - the message received from socket
@@ -56,7 +56,7 @@ class communicator(object):
         command - method of target to be called
         data - data that is passed to the method
         """
-        data = json.loads(dataJson)
+        data = pickle.loads(dataPickle)
         target = data[0]
         command = data[1]
         message = data[2]
@@ -69,9 +69,9 @@ class communicator(object):
         message - list with target(str), command(str), data(list)
         address - touple - (IP, PORT)  (IP: str and PORT: int)
         """
-        dataJson = json.dumps(data)
+        dataPickle = pickle.dumps(data, 2)
         # print addr
-        frame = (dataJson, addr)
+        frame = (dataPickle, addr)
         if(frame in self.queue):
             pass
         else:
@@ -81,10 +81,10 @@ class communicator(object):
         while 1:
             if(self.queue):
                 frame = self.queue[0]
-                dataJson = frame[0]
+                dataPickle = frame[0]
                 addr = frame[1]
                 try:
-                    self.sock.sendto(dataJson, addr)
+                    self.sock.sendto(dataPickle, addr)
                 except:
                     print "NETWORK UNREACHABLE"
                     print "\n **** PLEASE CONNECT TO NETWORK **** \n"

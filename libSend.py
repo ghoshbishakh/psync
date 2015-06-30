@@ -130,7 +130,7 @@ class fileSenderThread(object):
         target = "folderReceiver"
         command = "receive"
         chunkData = "END"
-        chunkString = base64.b64encode(chunkData)
+        chunkString = chunkData
         data = [fileID, filename, sequence, chunkString, 0, self.filePriority]
         message = [target, command, data]
         c.send(message, address)
@@ -147,7 +147,7 @@ class fileSenderThread(object):
             # print "sending END"
             self.endTransmission(fileID, filename, sequence, c, address)
         else:
-            chunkString = base64.b64encode(chunkData)
+            chunkString = chunkData
             if(sequence == self.fileSeq):
                 data = [fileID, filename, sequence, chunkString, filesize,
                         self.filePriority, self.timeStamp, self.ttl, self.fileDest, self.fileDestStatus]
