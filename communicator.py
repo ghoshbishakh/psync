@@ -53,9 +53,9 @@ class communicator(object):
                 pass
 
     def comHandler(self, dataPickle, address):
-        """parse data from json Message, and call handler with
+        """parse data from pickle Message, and call handler with
         Arguments:
-        jsonMessage - the message received from socket
+        pickleMessage - the message received from socket
         address - address of sender of the message
         Message must contain:
         target - target module to be called by handler
@@ -70,7 +70,7 @@ class communicator(object):
         self.controlRouter(target, command, message, address)
 
     def send(self, data, addr):
-        """convert data to message to jsonMessage and send to address
+        """convert data to message to pickleMessage and send to address
         Arguments:
         message - list with target(str), command(str), data(list)
         address - touple - (IP, PORT)  (IP: str and PORT: int)
