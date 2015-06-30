@@ -84,8 +84,8 @@ class communicator(object):
             self.queue.append(frame)
 
     def sendAck(self, data, addr):
-        dataJson = json.dumps(data)
-        frame = (dataJson, addr)
+        dataPickle = pickle.dumps(data, 2)
+        frame = (dataPickle, addr)
         if(frame in self.ackQueue):
             pass
         else:
