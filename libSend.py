@@ -34,31 +34,32 @@ class ackTracker(object):
         # print self.acks
         Data = data
         fileName = Data[1]
-        sequence = Data[2]
-        #print "ackRecv: " + str(sequence) + str(Data[3])
-        # if(type(sequence) == int):
-        #     sequence = sequence - self.offset
-        status = Data[3]
+        for sqstatus in Data[2]:
+            sequence = sqstatus[0]
+            #print "ackRecv: " + str(sequence) + str(Data[3])
+            # if(type(sequence) == int):
+            #     sequence = sequence - self.offset
+            status = sqstatus[1]
 
-        if((sequence == "RESET") and (self.acceptRESET is True)):
-            # print "DONE!! SENDING"
-            self.stop = True
-        if((sequence == "FINISH") and (self.acceptRESET is True)):
-            # print "DONE!! SENDING"
-            self.stop = True
-        if((sequence == "STOP") and (self.acceptRESET is True)):
-            # print "DONE!! SENDING"
-            self.stop = True
-        elif(sequence in self.acks):
-            if(self.acks[sequence] == 'y'):
-                pass
+            if((sequence == "RESET") and (self.acceptRESET is True)):
+                # print "DONE!! SENDING"
+                self.stop = True
+            if((sequence == "FINISH") and (self.acceptRESET is True)):
+                # print "DONE!! SENDING"
+                self.stop = True
+            if((sequence == "STOP") and (self.acceptRESET is True)):
+                # print "DONE!! SENDING"
+                self.stop = True
+            elif(sequence in self.acks):
+                if(self.acks[sequence] == 'y'):
+                    pass
+                else:
+                    self.acks[sequence] = status
             else:
                 self.acks[sequence] = status
-        else:
-            self.acks[sequence] = status
-            # print str(sequence) + ": " + str(self.acks[sequence])
-            # print self.acks
-            # print "\n"
+                # print str(sequence) + ": " + str(self.acks[sequence])
+                # print self.acks
+                # print "\n"
 
     def checkAck(self, sequence, size):
         if(sequence in self.acks):

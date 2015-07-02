@@ -311,7 +311,7 @@ class fileReceiver(object):
     def acknowledge(self, fileID, fileName, sequence, status, addr):
         target = "fileTransporter"
         command = "acceptAck"
-        ackData = [fileID, fileName, sequence, status]
+        ackData = [fileID, fileName, [(sequence, status)]]
         message = [target, command, ackData]
         self.communicator.sendAck(message, addr)
         # print "ACK: " + str(sequence) + status

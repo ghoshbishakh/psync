@@ -4,6 +4,8 @@ import pickle
 import socket
 import time
 
+MAX_ACK_MERGE = 4
+
 class communicator(object):
 
     """communicator: Send and Receive Message.
@@ -41,10 +43,10 @@ class communicator(object):
         while(1):
             # print "receiving"
             try:
-                data, address = self.sock.recvfrom(65507)
+                dataPickle, address = self.sock.recvfrom(65507)
                 # print "thread receive: "+str(data) + "\n"
-                if("***" in data):
-                    data = data.split("***")
+                data = pickle.loads(dataPickle)
+                if(len(data)==2):
                     self.comHandler(data[0], address)
                     self.comHandler(data[1], address)
                 else:
@@ -52,7 +54,7 @@ class communicator(object):
             except:
                 pass
 
-    def comHandler(self, dataPickle, address):
+    def comHandler(self, data, address):
         """parse data from pickle Message, and call handler with
         Arguments:
         pickleMessage - the message received from socket
@@ -62,7 +64,6 @@ class communicator(object):
         command - method of target to be called
         data - data that is passed to the method
         """
-        data = pickle.loads(dataPickle)
         target = data[0]
         command = data[1]
         message = data[2]
@@ -70,26 +71,31 @@ class communicator(object):
         self.controlRouter(target, command, message, address)
 
     def send(self, data, addr):
-        """convert data to message to pickleMessage and send to address
-        Arguments:
-        message - list with target(str), command(str), data(list)
-        address - touple - (IP, PORT)  (IP: str and PORT: int)
-        """
-        dataPickle = pickle.dumps(data, 2)
         # print addr
-        frame = [dataPickle, addr]
+        frame = [data, addr]
         if(frame in self.queue):
             pass
         else:
             self.queue.append(frame)
 
     def sendAck(self, data, addr):
-        dataPickle = pickle.dumps(data, 2)
-        frame = (dataPickle, addr)
+    	merged = False
+        frame = (data, addr)
         if(frame in self.ackQueue):
             pass
         else:
-            self.ackQueue.append(frame)
+        	fileID = data[2][0]
+        	fileName = data[2][1]
+        	sqstatus = data[2][2][0]
+        	for ackFrame, addr in self.ackQueue:
+        		if(len(data[2][2]) < MAX_ACK_MERGE):
+        			if(data[2][0] == fileID):
+        				if(sqstatus not in ackFrame[2][2]):
+        					ackFrame[2][2].append((sqstatus))
+        					merged = True
+        	if(not merged):
+        		self.ackQueue.append(frame)
+
 
     def piggyback(self):
         for ack, addr in self.ackQueue:
@@ -110,10 +116,10 @@ class communicator(object):
             if(self.queue):
                 frame = self.queue[0]
                 if(len(frame) > 2):
-                    dataPickle = frame[0] + "***" + frame[1]
+                    dataPickle = pickle.dumps(frame[0:2],2)
                     addr = frame[2]
                 else:
-                    dataPickle = frame[0]
+                    dataPickle = pickle.dumps(frame[0],2)
                     addr = frame[1]
                 try:
                     self.sock.sendto(dataPickle, addr)
