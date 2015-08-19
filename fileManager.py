@@ -1,8 +1,9 @@
 # File Table and File List Format:
-# ---------------------------------------------------------------------------------------------------------------------
-# |  File ID  |  File Name  |  Sequence  |  File Size  | Priority | Timestamp | TTL | Destination | DestReachedStatus |
-# ---------------------------------------------------------------------------------------------------------------------
-
+# ---------------------------------------------------------------------------------------------------------------------------------
+# |  File ID  |  File Name  |  Sequence: [from, to]  |  File Size  | Priority | Timestamp | TTL | Destination | DestReachedStatus |
+# ---------------------------------------------------------------------------------------------------------------------------------
+# DestReachedStatus = complete: -1, not sent anything: -2, partial: >= 0
+# Sequence = not have anything: 0, have something: [first frame seq, last frame seq], end frame seq = -1
 
 import hashlib
 import os
@@ -12,6 +13,7 @@ import time
 import logger
 from random import randint
 
+DEFAULT_DESTINATION = "DB"
 
 class fileManager(object):
 
@@ -82,8 +84,7 @@ class fileManager(object):
         fileId
 
         Returns: False - if file does not exist
-                 -1 - full file exists
-                 seq - part of file exists
+                 [first frame seq, last frame seq] - part of file exists
         '''
         if(fileId in self.tmpDB):
             return self.tmpDB[fileId][2]
@@ -147,8 +148,18 @@ class fileManager(object):
     def setDestStatus(self, fileID, status):
         if(fileID in self.tmpDB):
             fileData = self.tmpDB[fileID]
-            fileData[8] = status
-            self.updated = True
+            if(fileData[8] != -1 and fileData[8] < status):
+                fileData[8] = status
+                if(status == -1):
+                    fileData[2] = 0
+                elif(status == -2):
+                    pass
+                else:
+                    if((fileData[2][1]!=-1) and (fileData[2][1]<status)):
+                        fileData[2] = 0
+                    elif(fileData[2][0]<status):
+                        fileData[2][0] = status+1
+                    self.updated = True
 
     def getFiles(self):
         '''get list of files - returns a list form of fileTable'''
@@ -169,12 +180,18 @@ class fileManager(object):
         # print List
         return List
 
-    def setSEQ(self, fileID, seq):
+    def setSeqTo(self, fileID, seq):
         if(fileID in self.tmpDB):
-            if(self.tmpDB[fileID][2] != -1):
-                self.tmpDB[fileID][2] = seq
+            if(self.tmpDB[fileID][2][1] != -1):
+                self.tmpDB[fileID][2][1] = seq
                 #print seq
                 self.updated = True
+
+    def setSeqFrom(self, fileID, seq):
+        if(fileID in self.tmpDB):
+            self.tmpDB[fileID][2][0] = seq
+            #print seq
+            self.updated = True
 
     def insertData(self, fileID, data):
         if(fileID in self.tmpDB):
@@ -191,7 +208,7 @@ class fileManager(object):
         self.tmpDB[fileId] = entry
         self.updated = True
 
-    def checkDest(self, fileID, address):
+    def checkDest(self, fileID, fileSeq, address):
         if(address == "ThisNode"):
             peerID = self.discoverer.peerID
         else:
@@ -199,7 +216,7 @@ class fileManager(object):
         if(fileID in self.tmpDB):
             dest = self.tmpDB[fileID][7]
             if((dest != "ALL") and (dest == peerID)):
-                self.tmpDB[fileID][8] = 1
+                self.tmpDB[fileID][8] = fileSeq
             self.updated = True
 
     def checkChecksum(self, fileId):
@@ -251,8 +268,8 @@ class fileManager(object):
                     if(FileId in self.tmpDB):
                         pass
                     else:
-                        fileEntry = [FileId, item, -1, os.path.getsize(path),
-                                     randint(1,4), time.time(), -1, "All", 0]
+                        fileEntry = [FileId, item, [0, -1], os.path.getsize(path),
+                                     randint(1,4), time.time(), -1, DEFAULT_DESTINATION, -2]
                         self.tmpDB[FileId] = fileEntry
                         self.updated = True
 
@@ -267,7 +284,7 @@ class fileManager(object):
                 pass
             elif(data[8] == 1):
                 pass
-            else:
+            elif(data[2] != 0):
                 del self.tmpDB[fileId]
                 self.updated = True
 

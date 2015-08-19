@@ -127,15 +127,19 @@ class fileReceiver(object):
         self.endTS = 0
         self.address = None
         self.fileId = fileId
-        self.fileDest = 0
-        self.fileDestStatus = 0
+        self.fileDest = "NONE"
+        self.fileDestStatus = "NONE"
 
         self.f = 0
         self.LAS = -1
         self.LSN = -1
         self.store = {}
 
-        self.LOF = int(self.fileManager.fileStatus(self.fileId)) - 1
+        self.localSeq = self.fileManager.fileStatus(self.fileId)
+        if(self.localSeq):
+            self.LOF = self.localSeq[1] - 1
+        else:
+            self.LOF = "NONE"
 
         self.lastRcvTimeStamp = time()
         self.startTimeStamp = time()
@@ -149,6 +153,13 @@ class fileReceiver(object):
             self.ttl = data[7]
             self.fileDest = data[8]
             self.fileDestStatus = data[9]
+            if(self.LOF == "NONE"):
+                if(self.fileDestStatus == -2):
+                    self.LOF = -1
+                else:
+                    self.LOF = self.fileDestStatus
+            elif(self.LOF<self.fileDestStatus):
+                self.LOF = self.fileDestStatus
         if(len(data) >= 6):
             self.filePriority = data[5]
         sequence = data[2]
@@ -172,7 +183,7 @@ class fileReceiver(object):
                 # print "\n RESET FAILED \n"
             if(self.ended is False):
                 # print self.ended
-                self.fileManager.setSEQ(self.fileId, -1)
+                self.fileManager.setSeqTo(self.fileId, -1)
                 print "-----------------------------------------"
                 print "FINISHED DOWNLOADING: " + fileName
                 print "-----------------------------------------"
@@ -193,7 +204,7 @@ class fileReceiver(object):
                 logger.log(str(logList))
                 try:
                     self.fileManager.checkChecksum(self.fileId)
-                    self.fileManager.checkDest(self.fileId, "ThisNode")
+                    self.fileManager.checkDest(self.fileId, -1, "ThisNode")
                 except:
                     raise
             self.ended = True
@@ -228,6 +239,7 @@ class fileReceiver(object):
                 # str(self.fileSize / 1024) + " KB " + str(speed) + "KBps" + "
                 # from: " + str(address)
                 logger.log(str(logList))
+                self.fileManager.checkDest(self.fileId, self.LOF, "ThisNode")
             self.ended = True
             self.acknowledge(
                 self.fileId, self.fileName, sequence, 'y', address)
@@ -240,73 +252,81 @@ class fileReceiver(object):
 
         else:
             # INITIATION --------------------------------------
-            if(sequence == (self.LOF + 1) and (not self.f)):
-                self.f = open(self.folderPath + '/' + fileName, 'a')
-                sizeInKB = float(self.fileSize) / 1024.0
-                print "\n--------------  RECEIVING  ------------------------\n"
-                print "\n Receiving: " + fileName
-                print "\n Size: " + str(sizeInKB) + "KB"
-                print "\t From Seq: " + str(sequence)
-                self.startTimeStamp = time()
-                self.firstSEQ = sequence
-                if(sequence == 0):
-                    logList = [str(time()), "RECEIVING", str(fileName),
-                               str(self.fileSize / 1024),
-                               str(address), str(sequence)]
+            if(self.LOF != "NONE"):
+                if(sequence == (self.LOF + 1) and (not self.f)):
+                    self.f = open(self.folderPath + '/' + fileName, 'a')
+                    sizeInKB = float(self.fileSize) / 1024.0
+                    print "\n--------------  RECEIVING  ------------------------\n"
+                    print "\n Receiving: " + fileName
+                    print "\n Size: " + str(sizeInKB) + "KB"
+                    print "\t From Seq: " + str(sequence)
+                    self.startTimeStamp = time()
+                    self.firstSEQ = sequence
+                    if(sequence == 0):
+                        logList = [str(time()), "RECEIVING", str(fileName),
+                                   str(self.fileSize / 1024),
+                                   str(address), str(sequence)]
 
-                #    logTxt = "RECEIVING: " + \
-                #        str(fileName) + " " + str(self.fileSize / 1024) + \
-                #        " KB " + " from: " + \
-                #        str(address) + " seq: " + str(sequence)
+                    #    logTxt = "RECEIVING: " + \
+                    #        str(fileName) + " " + str(self.fileSize / 1024) + \
+                    #        " KB " + " from: " + \
+                    #        str(address) + " seq: " + str(sequence)
 
+                    else:
+                        logList = [str(time()), "RESUME-RECEIVING",
+                                   str(fileName),
+                                   str(self.fileSize / 1024),
+                                   str(address), str(sequence)]
+
+                    #    logTxt = "RESUME RECEIVING: " + \
+                    #        str(fileName) + " " + str(self.fileSize / 1024) + \
+                    #        " KB " + " from: " + \
+                    #        str(address) + " seq: " + str(sequence)
+                    logger.log(str(logList))
+                    self.startTS = time()
+                    if(not self.fileManager.fileStatus(self.fileId)):
+                        entry = [self.fileName, [sequence, sequence],
+                                 fileSize, self.filePriority,
+                                 self.timeStamp, self.ttl, self.fileDest, self.fileDestStatus]
+                        self.fileManager.updateEntry(self.fileId, entry)
+                    else:
+                        localSeq = self.fileManager.fileStatus(self.fileId)
+                        localSeqFrom = localSeq[0]
+                        localSeqTo = localSeq[1]
+                        if(sequence==localSeqTo+1):
+                            self.fileManager.setSeqTo(self.fileId, sequence)
+                        else:
+                            print "FATAL, FILE BREAK"
+
+
+                # PROPAGATION --------------------------------------
+                if(sequence == (self.LOF + 1)):
+                    seekPosition = LENGTH * sequence
+                    self.f.seek(seekPosition)
+                    self.f.write(chunkData)
+                    # print "boom"
+                    self.fileManager.setSeqTo(self.fileId, sequence)
+                    self.updateProgress(self.fileSize, self.f)
+                    # print "written" + str(sequence)
+                    self.acknowledge(self.fileId, fileName, sequence, 'y', address)
+                    self.LOF += 1
+                    self.LOF = self.checkStore(
+                        self.store, self.LOF, self.f, self.fileSize)
+
+                elif(sequence > (self.LOF + 1) and (self.f != 0)):
+                    for i in range(sequence - (self.LSN + 1)):
+                        self.acknowledge(self.fileId, fileName, (self.LSN + i + 1),
+                                         'n', address)
+                    self.store[sequence] = chunkData
+                    self.acknowledge(self.fileId, fileName, sequence, 'y', address)
+                elif(sequence <= self.LOF):
+                    self.acknowledge(self.fileId, fileName, sequence, 'y', address)
                 else:
-                    logList = [str(time()), "RESUME-RECEIVING",
-                               str(fileName),
-                               str(self.fileSize / 1024),
-                               str(address), str(sequence)]
+                    pass
+                    #self.acknowledge(self.fileId, fileName, sequence, 'y', address)
 
-                #    logTxt = "RESUME RECEIVING: " + \
-                #        str(fileName) + " " + str(self.fileSize / 1024) + \
-                #        " KB " + " from: " + \
-                #        str(address) + " seq: " + str(sequence)
-                logger.log(str(logList))
-                self.startTS = time()
-                if(sequence == 0):
-                    entry = [self.fileName, sequence,
-                             fileSize, self.filePriority,
-                             self.timeStamp, self.ttl, self.fileDest, self.fileDestStatus]
-                    self.fileManager.updateEntry(self.fileId, entry)
-                else:
-                    self.fileManager.setSEQ(self.fileId, sequence)
-
-            # PROPAGATION --------------------------------------
-            if(sequence == (self.LOF + 1)):
-                seekPosition = LENGTH * sequence
-                self.f.seek(seekPosition)
-                self.f.write(chunkData)
-                # print "boom"
-                self.fileManager.setSEQ(self.fileId, sequence)
-                self.updateProgress(self.fileSize, self.f)
-                # print "written" + str(sequence)
-                self.acknowledge(self.fileId, fileName, sequence, 'y', address)
-                self.LOF += 1
-                self.LOF = self.checkStore(
-                    self.store, self.LOF, self.f, self.fileSize)
-
-            elif(sequence > (self.LOF + 1) and (self.f != 0)):
-                for i in range(sequence - (self.LSN + 1)):
-                    self.acknowledge(self.fileId, fileName, (self.LSN + i + 1),
-                                     'n', address)
-                self.store[sequence] = chunkData
-                self.acknowledge(self.fileId, fileName, sequence, 'y', address)
-            elif(sequence <= self.LOF):
-                self.acknowledge(self.fileId, fileName, sequence, 'y', address)
-            else:
-                pass
-                #self.acknowledge(self.fileId, fileName, sequence, 'y', address)
-
-            self.LSN = sequence
-            self.lastRcvTimeStamp = time()
+                self.LSN = sequence
+                self.lastRcvTimeStamp = time()
 
     def acknowledge(self, fileID, fileName, sequence, status, addr):
         target = "fileTransporter"
@@ -327,7 +347,7 @@ class fileReceiver(object):
                 File.seek(seekPosition)
                 File.write(Store[Last + 1])
                 # print Store[Last + 1]
-                self.fileManager.setSEQ(self.fileId, sequence)
+                self.fileManager.setSeqTo(self.fileId, sequence)
                 self.updateProgress(self.fileSize, File)
                 # print "written" + str(sequence)
                 Last += 1
@@ -372,6 +392,7 @@ class fileReceiver(object):
             else:
                 speed = 0
             print "TIMED OUT: " + str(self.fileName)
+            self.fileManager.checkDest(self.fileId, self.LOF, "ThisNode")
 
             logList = [str(time()), "TIMED-OUT", str(self.fileName),
                        str(self.address),
@@ -384,7 +405,7 @@ class fileReceiver(object):
             logger.log(str(logList))
             self.stopTS = time()
             try:
-                self.fileManager.setSEQ(self.fileId, (self.LOF + 1))
+                self.fileManager.setSeqTo(self.fileId, (self.LOF + 1))
                 # print "SUCCESSSS!!!!!!!!!!!!!"
                 # print self.LOF
             except:

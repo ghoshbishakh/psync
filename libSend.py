@@ -83,8 +83,11 @@ class fileSenderThread(object):
         self.fileManager = fileManager
         self.fileID = fileID
         self.fileStatus = self.fileManager.fileStatus(self.fileID)
-        if(self.fileStatus == -1):
-            self.fullFile = True
+        if(self.fileStatus):
+            if(self.fileStatus[1] == -1):
+                self.fullFile = True
+            else:
+                self.fullFile = False
         else:
             self.fullFile = False
         self.filePath = filePath
@@ -250,7 +253,9 @@ class fileSenderThread(object):
         print "FILE NAME: " + fileName
         # print "FILE SIZE: " + str(float(fileSize) / 1024.0) + "KB"
         if(status == "FINISHED SENDING"):
-            self.fileManager.checkDest(self.fileID, self.address)
+            self.fileManager.checkDest(self.fileID, -1, self.address)
+        else:
+            self.fileManager.checkDest(self.fileID, lastAckCheck, self.address)
         logList = [str(time.time()), str(status), str(fileName),
                    str(float(fileSize) / 1024.0),
                    str(address)]

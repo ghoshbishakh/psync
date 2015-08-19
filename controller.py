@@ -104,12 +104,14 @@ class controller(object):
     def verifyDest(self, message):
         for fileInfo in message:
             fileDestStatus = fileInfo[8]
-            if(fileDestStatus):
-                fileID = fileInfo[0]
+            fileID = fileInfo[0]
+            if(fileID not in self.folderReceiver.activeFileId):
                 if(self.fileManager.fileStatus(fileID)):
-                    self.fileManager.setDestStatus(fileID, 1)
+                    self.fileManager.setDestStatus(fileID, fileDestStatus)
                 else:
-                    self.fileManager.updateEntry(fileID, fileInfo[1:])
+                    entry = fileInfo[1:]
+                    entry[1] = 0
+                    self.fileManager.updateEntry(fileID, entry)
 
 
     def updateMissingFiles(self):
@@ -121,36 +123,48 @@ class controller(object):
             if(peerId != self.discoverer.peerID):
                 for fileData in List:
                     fileID = fileData[0]
-                    fileName = fileData[1]
-                    fileSeq = fileData[2]
-                    if(fileID not in self.folderReceiver.activeFileId):
+                    if(fileID not in self.folderReceiver.activeFileId and fileData[2]):
+                        fileName = fileData[1]
+                        
+                        fileSeqFrom = fileData[2][0]
+                        fileSeqTo = fileData[2][1]
+                        
                         fileSize = fileData[3]
                         filePriority = fileData[4]
                         timeStamp = fileData[5]
                         ttl = fileData[6]
                         ttlCheck = self.checkTTL(timeStamp, ttl)
-                        status = self.fileManager.fileStatus(fileID)
                         fileDestStatus = fileData[8]
+
+                        localStatus = self.fileManager.fileStatus(fileID)
+                        if(localStatus):
+                            localSeqFrom = localStatus[0]
+                            localSeqTo = localStatus[1]
                         # print status
-                        if(ttlCheck and (not fileDestStatus)):
-                            if(status is False):
+                        if(ttlCheck and (fileDestStatus != -1) and (fileDestStatus < fileSeqTo)):
+                            if(fileDestStatus == -2):
+                                beginSeq = 0
+                            else:
+                                beginSeq = fileDestStatus
+                            if(not localStatus):
                                 filedata = [fileID, fileName,
-                                            fileSeq, fileSize,
-                                            filePriority, 0, peerId]
+                                            fileSeqTo, fileSize,
+                                            filePriority, beginSeq, peerId]
                                 if((fileID in self.missingFiles) is False):
                                     self.missingFiles[fileID] = filedata
                                 elif((self.missingFiles[fileID][2] != -1) and
-                                     (self.missingFiles[fileID][2] < fileSeq)):
+                                     (self.missingFiles[fileID][2] < fileSeqTo)):
                                     self.missingFiles[fileID] = filedata
-                            elif(status != -1):
-                                filedata = [fileID, fileName,
-                                            fileSeq, fileSize,
-                                            filePriority, status, peerId]
-                                if((fileID in self.missingFiles) is False):
-                                    self.missingFiles[fileID] = filedata
-                                elif((self.missingFiles[fileID][2] != -1) and
-                                     (self.missingFiles[fileID][2] < fileSeq)):
-                                    self.missingFiles[fileID] = filedata
+                            elif(localStatus != -1):
+                                if(localSeqTo < fileSeqTo):
+                                    filedata = [fileID, fileName,
+                                                fileSeqTo, fileSize,
+                                                filePriority, status, peerId]
+                                    if((fileID in self.missingFiles) is False):
+                                        self.missingFiles[fileID] = filedata
+                                    elif((self.missingFiles[fileID][2] != -1) and
+                                         (self.missingFiles[fileID][2] < fileSeqTo)):
+                                        self.missingFiles[fileID] = filedata
                             else:
                                 if((fileID in self.missingFiles) is True):
                                     del self.missingFiles[fileID]
