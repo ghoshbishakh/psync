@@ -2,9 +2,9 @@
 
 # ##     Presently it uses BROADCASTING
 # ##     Broadcast Message Format:
-# ##             -------------------------------------
-# ##             |  PEER ID  |  PEER IP  | PEER PORT |
-# ##             -------------------------------------
+# ##             -------------------------------------------------------------------
+# ##             |  PEER ID  |  PEER IP  | PEER PORT | READY TO CONNECT (y=1/n=0)  |
+# ##             -------------------------------------------------------------------
 # ##
 # ##     peerList: (Dictionary)
 # ##             {'peerId':[peerIP, peerPORT, timeout]}
@@ -54,6 +54,7 @@ class discoverer(object):
         self.interval = interval
         self.timeout = timeout
         self.peerList = {}
+        self.readyToConnect = 1
 
 #========================= CREATE SOCKET ============================
         self.broadcastSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -64,6 +65,10 @@ class discoverer(object):
         logStr = "['"+str(time.time())+"', 'START_DISCOVERY']"
         logger.log(logStr)
 
+#======================== CHANGE READY TO CONNECT STATE =============
+    def ready(self, state):
+        self.readyToConnect = int(state)
+
 #========================== BROADCAST ========================================
 
     def broadcast(self):
@@ -71,7 +76,7 @@ class discoverer(object):
         #print "Broadcasting ..."
         while 1:
             try:
-                message = [self.peerID, self.peerIP, self.peerPORT, str(count), str(datetime.now().strftime("%H:%M:%S:%f"))]
+                message = [self.peerID, self.peerIP, self.peerPORT, str(count), str(datetime.now().strftime("%H:%M:%S:%f")), self.readyToConnect]
                 messageJson = json.dumps(message)
                 self.broadcastSock.sendto(messageJson, self.broadcastAddr)
                 count += 1
@@ -94,14 +99,16 @@ class discoverer(object):
         peerPORT = str(message[2])
         Count = str(message[3])
         senderTime = str(message[4])
+        readyToConnect = str(message[5])
         if(peerID != self.peerID):
-            logStr = "['"+str(datetime.now().strftime("%H:%M:%S:%f"))+"', 'BROADCAST_RECEIVED','"+peerID+"','"+peerIP+"','"+peerPORT+"','"+Count+"','"+senderTime+"']"
+            logStr = "['"+str(datetime.now().strftime("%H:%M:%S:%f"))+"', 'BROADCAST_RECEIVED','"+peerID+"','"+peerIP+"','"+peerPORT+"','"+Count+"','"+senderTime+"','"+readyToConnect+"']"
             logger.log(logStr)
             #print message
         timeout = 0
-        peerData = [peerIP, peerPORT, timeout]
+        peerData = [peerIP, peerPORT, timeout, readyToConnect]
         if((peerID in self.peerList) and
-          (self.peerList[peerID][:-1] == peerData[:-1])):
+          (self.peerList[peerID][:-2] == peerData[:-2])):
+            self.peerList[peerID] = peerData
             self.peerList[peerID][2] = 0
         else:
             self.peerList[peerID] = peerData
