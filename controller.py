@@ -46,9 +46,10 @@ class controller(object):
     sendFile([fileId. fileSeq], address)
     """
 
-    def __init__(self, communicator, discoverer, fileManager, folderReceiver):
+    def __init__(self, communicator, discoverer, grouper, fileManager, folderReceiver):
 
         self.com = communicator
+        self.grouper = grouper
         self.discoverer = discoverer
         self.fileManager = fileManager
         self.allRemoteFiles = {}
@@ -58,7 +59,7 @@ class controller(object):
         self.folderReceiver = folderReceiver
 
     def requestRemoteFiles(self):
-        for key, value in self.discoverer.peerList.items():
+        for key, value in self.grouper.connectedPeerList.items():
             peerAddress = (value[0], int(value[1]))
             target = "controller"
             command = "sendFileList"
@@ -85,7 +86,7 @@ class controller(object):
     def updateRemoteFiles(self):
         self.requestRemoteFiles()
         for peerId, List in self.allRemoteFiles.items():
-            if(peerId in self.discoverer.peerList):
+            if(peerId in self.grouper.connectedPeerList):
                 pass
             else:
                 del self.allRemoteFiles[peerId]
@@ -155,11 +156,11 @@ class controller(object):
                                 elif((self.missingFiles[fileID][2] != -1) and
                                      (self.missingFiles[fileID][2] < fileSeqTo)):
                                     self.missingFiles[fileID] = filedata
-                            elif(localStatus != -1):
-                                if(localSeqTo < fileSeqTo):
+                            elif(localSeqTo != -1):
+                                if(localSeqTo < fileSeqTo or fileSeqTo == -1):
                                     filedata = [fileID, fileName,
                                                 fileSeqTo, fileSize,
-                                                filePriority, status, peerId]
+                                                filePriority, localSeqTo, peerId]
                                     if((fileID in self.missingFiles) is False):
                                         self.missingFiles[fileID] = filedata
                                     elif((self.missingFiles[fileID][2] != -1) and

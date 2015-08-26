@@ -104,7 +104,7 @@ class folderReceiver(object):
         if(fileID in self.activeFileId):
             pass
         else:
-            self.activeFileId[fileID] = fileID
+            self.activeFileId[fileID] = address
 
 
 class fileReceiver(object):

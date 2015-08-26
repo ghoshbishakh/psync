@@ -7,14 +7,15 @@ from time import sleep
 import getIP
 import logger
 import time
+import grouper
 
 
 logList = [str(time.time()), "START"]
 logger.log(str(logList))
 
-PEER_IP = "192.168.10.102"
+PEER_IP = "192.168.10.209"
 PEER_PORT = 55555
-PEER_ID = 'DB'
+PEER_ID = 'D209'
 FOLDER_PATH = 'sync'
 print PEER_IP
 
@@ -27,6 +28,11 @@ def controlRouter(target, command, message, address):
         getattr(FileTransporter, command)(message, address)
     if(target == 'folderReceiver'):
         getattr(FolderReceiver, command)(message, address)
+    if(target == 'fileSenderManager'):
+        getattr(FolderReceiver.fileSenderManager, command)(message)
+    if(target == 'grouper'):
+        getattr(Grouper, command)(message, address)
+
 
 
 def discoveryHandler(peerId, peerData, state):
@@ -49,6 +55,10 @@ Communicator = communicator.communicator(controlRouter, PEER_IP, PEER_PORT)
 Discoverer = discoverer.discoverer(
     PEER_IP, PEER_PORT, PEER_ID, discoveryHandler, '192.168.10.255')
 
+#-------------------------------------------------------------------------
+
+Grouper = grouper.grouper(Discoverer, Communicator, controlRouter, 3, 60)
+
 
 # --------------------------------------------------------------------------
 FileManager = fileManager.fileManager(FOLDER_PATH, Discoverer)
@@ -58,7 +68,7 @@ FolderReceiver = fileTransporter.folderReceiver(
     FOLDER_PATH, Communicator, FileManager)
 
 # ---------------------------------------------------------------------------
-Controller = controller.controller(Communicator, Discoverer, FileManager, FolderReceiver)
+Controller = controller.controller(Communicator, Discoverer, Grouper, FileManager, FolderReceiver)
 
 # --------------------------------------------------------------------------
 FileTransporter = fileTransporter.fileTransporter(
@@ -67,6 +77,7 @@ FileTransporter = fileTransporter.fileTransporter(
 
 Communicator.run()
 Discoverer.startDiscovery()
+Grouper.start()
 FileManager.start()
 FileTransporter.startSendFromQ()
 sleep(5)

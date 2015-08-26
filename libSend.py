@@ -170,6 +170,11 @@ class fileSenderThread(object):
         # print str(sequence)+" sent \n"
         # print "delay: " + str(self.delay)
 
+    def interrupt(self):
+        self.status = "INTERRUPTED SENDING"
+        self.tracker.stop = True
+
+
     def sendFile(self, filePath, fileSeq, address, c):
         path = filePath
         try:
@@ -215,15 +220,15 @@ class fileSenderThread(object):
         self.tracker.fileName = fileName
         self.tracker.sendReset = self.sendReset
         if(self.fullFile):
-            status = "FINISHED SENDING"
+            self.status = "FINISHED SENDING"
         else:
-            status = "FINISHED SENDING PART"
+            self.status = "FINISHED SENDING PART"
         while(self.tracker.stop is False):
             # print "resend:", self.fileID, self.resendCount
             if(self.delay > 1000):
                     self.delay = 1
             if(self.resendCount > 500):
-                status = "FAILED SENDING"
+                self.status = "FAILED SENDING"
                 break
             if((LFS - lastAckCheck) < W):
                 # print "SENDING" + str(sequence)
@@ -249,17 +254,20 @@ class fileSenderThread(object):
                     # print self.resendCount
         fileObj.close()
         del self.onGoing[self.SendId]
-        print "\n-------------- " + status + "   -------------------\n"
+        print "\n-------------- " + self.status + "   -------------------\n"
         print "FILE NAME: " + fileName
         # print "FILE SIZE: " + str(float(fileSize) / 1024.0) + "KB"
-        if(status == "FINISHED SENDING"):
+        if(self.status == "FINISHED SENDING"):
             self.fileManager.checkDest(self.fileID, -1, self.address)
+            logList = [str(time.time()), str(self.status), str(fileName),
+                       str(float(fileSize) / 1024.0), str(-1),
+                       str(address)]
         else:
             self.fileManager.checkDest(self.fileID, lastAckCheck, self.address)
-        logList = [str(time.time()), str(status), str(fileName),
-                   str(float(fileSize) / 1024.0),
-                   str(address)]
-        # logTxt = status + ": " + \
+            logList = [str(time.time()), str(self.status), str(fileName),
+                       str(float(fileSize) / 1024.0), str(lastAckCheck),
+                       str(address)]
+        # logTxt = self.status + ": " + \
         #     str(fileName) + " " + str(float(fileSize) / 1024.0) + \
         #     " KB " + " to " + str(address)
         logger.log(str(logList))
@@ -314,3 +322,8 @@ class fileSenderManager(object):
         else:
             pass
             # print "DHAAAAT"
+
+    def stopTransmission(self, address):
+        for sendId, process in self.onGoing.items():
+            if(process.address == address):
+                process.interrupt()

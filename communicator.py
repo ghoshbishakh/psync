@@ -127,7 +127,7 @@ class communicator(object):
                     print "NETWORK UNREACHABLE"
                     print "\n **** PLEASE CONNECT TO NETWORK **** \n"
                 del self.queue[0]
-            time.sleep(0.000001)
+            time.sleep(0.00001)
 
     def run(self):
         """Start listening for messages and call comHandler

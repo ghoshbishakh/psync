@@ -104,20 +104,20 @@ class discoverer(object):
             logStr = "['"+str(datetime.now().strftime("%H:%M:%S:%f"))+"', 'BROADCAST_RECEIVED','"+peerID+"','"+peerIP+"','"+peerPORT+"','"+Count+"','"+senderTime+"','"+readyToConnect+"']"
             logger.log(logStr)
             #print message
-        timeout = 0
-        peerData = [peerIP, peerPORT, timeout, readyToConnect]
-        if((peerID in self.peerList) and
-          (self.peerList[peerID][:-2] == peerData[:-2])):
-            self.peerList[peerID] = peerData
-            self.peerList[peerID][2] = 0
-        else:
-            self.peerList[peerID] = peerData
-            try:
-                self.peerHandler(peerID, peerData, 1)
-            except:
-                print "newPeer handler Error - discoverer module"
+            timeout = 0
+            peerData = [peerIP, peerPORT, timeout, readyToConnect]
+            if((peerID in self.peerList) and
+              (self.peerList[peerID][:-2] == peerData[:-2])):
+                self.peerList[peerID] = peerData
+                self.peerList[peerID][2] = 0
             else:
-                pass
+                self.peerList[peerID] = peerData
+                try:
+                    self.peerHandler(peerID, peerData, 1)
+                except:
+                    print "newPeer handler Error - discoverer module"
+                else:
+                    pass
 
     def listener(self):
         self.listenerSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
